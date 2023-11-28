@@ -1,5 +1,7 @@
+# Folders
 .idea
 archive
-
 vq-f4
-vq-f4.zip
+
+# Files
+main_old.py
