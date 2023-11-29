@@ -5,6 +5,7 @@ from omegaconf import OmegaConf
 
 # Local file imports
 from ldm.util import instantiate_from_config
+from ldm.models.diffusion.psld import DDIMSampler
 
 
 # Dataset
@@ -14,6 +15,10 @@ dataset_path = ("/mnt/c/Users/marko/Desktop/Bachelors Thesis/datasets/limited_CT
 # Autoencoder Model
 config_path = "models/vq-f4/config.yaml"
 ckpt_path = "models/vq-f4/model.ckpt"
+
+# Pytorch
+device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+print("Torch Device: " + str(device))
 
 
 def load_model_from_config(config, ckpt, verbose=False):
@@ -39,11 +44,16 @@ def load_model_from_config(config, ckpt, verbose=False):
 def main():
     data = np.load(dataset_path)
     images = torch.from_numpy(data["x_train"]).float()
-    x = images[0, :, :, 0]
+    x = images[np.newaxis, 0:3, :, :, 0]
+    x = x.to(device)
+    print("Shape of x: " + str(x.shape))
 
     # Load pretrained autoencoder
     config = OmegaConf.load(config_path)
     autoencoder_model = load_model_from_config(config, ckpt_path)
+    autoencoder_model = autoencoder_model.to(device)
+
+    x_encoded = autoencoder_model.encode(x)
 
 
 if __name__ == "__main__":

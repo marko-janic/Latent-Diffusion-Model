@@ -1,4 +1,4 @@
-name: ldm
+name: ldm_stable_diffusion
 channels:
   - pytorch
   - defaults
