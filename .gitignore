@@ -1,7 +1,8 @@
 # Folders
 .idea
 archive
-vq-f4
+models/vq-f4
+venv
 
 # Files
 main_old.py
