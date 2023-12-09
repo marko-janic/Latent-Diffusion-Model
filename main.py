@@ -39,13 +39,13 @@ batch_size = 32
 num_workers_train = 4
 num_workers_test = 4
 global_sigma = 25.0
-skip_training = True
-n_epochs = 10
+skip_training = False
+n_epochs = 100
 learning_rate = 1e-4
 losses = []
 n_skip_epochs = 4  # Number of epochs to skip for plotting the training
 image_channels = 3
-experiment_dir = "experiments/experiment1/"  # Directory where checkpoint is
+experiment_dir = "experiments/experiment2/"  # Directory where checkpoint is
 
 # Sampling
 num_steps = 100  # Number of sampling steps
@@ -227,9 +227,6 @@ def generate_samples(marginal_prob_std_fn, score_model, diffusion_coeff_fn, im_d
                                                          autoencoder_model=autoencoder_model,
                                                          device=device,
                                                          z=z_init[i], tau=global_tau)
-        print(torch.min(posterior_samples_clean))
-        print(torch.max(posterior_samples_clean))
-        # posterior_samples_clean = (posterior_samples_clean + torch.min(posterior_samples_clean))/torch.max(posterior_samples_clean)
         # posterior_samples_clean = posterior_samples_clean.clamp(0.0, 1.0)
         samples_clean.append(posterior_samples_clean)
     plt.imshow(autoencoder_model.decode(samples_clean[0])[0].permute(1, 2, 0).cpu().detach().numpy())
@@ -283,6 +280,24 @@ def main():
                 x = x.to(device)
 
                 x_encoded = autoencoder_model.encode_to_prequant(x)
+                x_decoded = autoencoder_model.decode(x_encoded)
+
+                #print(torch.min(x))
+                #print(torch.max(x))
+                #plt.imshow(x[0].permute(1, 2, 0).cpu().detach().numpy())
+                #plt.title("Ground Truth")
+                #plt.show()
+                #print(torch.min(x_encoded))
+                #print(torch.max(x_encoded))
+                #plt.imshow(x_encoded[0].permute(1, 2, 0).cpu().detach().numpy())
+                #plt.title("Encoded")
+                #plt.show()
+                #print(torch.min(x_decoded))
+                #print(torch.max(x_decoded))
+                #plt.imshow(x_decoded[0].permute(1, 2, 0).cpu().detach().numpy())
+                #plt.title("Decoded")
+                #plt.show()
+                #exit(0)
 
                 loss = loss_fn(score_model, x_encoded, marginal_prob_std_fn)
                 optimizer.zero_grad()
@@ -301,7 +316,7 @@ def main():
                 losses.append(avg_loss/num_items)
                 plt.clf()
                 plt.plot(np.arange(n_skip_epochs, len(losses) + n_skip_epochs), losses)
-                plt.savefig("losses.jpg")
+                plt.savefig(experiment_dir + "losses.jpg")
                 plt.clf()
 
     # Sampling =========================================================================================================
