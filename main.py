@@ -21,11 +21,11 @@ from functions import diffusion_coeff
 from models.models import ScoreNet
 
 
-## Datasets
-#limited_CT_dataset_path = ("/mnt/c/Users/marko/Desktop/Bachelors Thesis/datasets/limited_CT/"
-#                           "limited-CT_64/limited-CT/horizontal_snr25.0.npz")  # local machine wsl
-limited_CT_dataset_path = os.path.join("..", "bachelors_thesis", "datasets", "limited-CT_64",
-                                       "limited-CT", "horizontal_snr25.0.npz")  # on sciCORE
+# Datasets
+limited_CT_dataset_path = ("/mnt/c/Users/marko/Desktop/Bachelors Thesis/datasets/limited_CT/"
+                           "limited-CT_64/limited-CT/horizontal_snr25.0.npz")  # local machine wsl
+#limited_CT_dataset_path = os.path.join("..", "bachelors_thesis", "datasets", "limited-CT_64",
+#                                       "limited-CT", "horizontal_snr25.0.npz")  # on sciCORE
 
 image_size = 64
 
@@ -43,7 +43,7 @@ batch_size = 32
 num_workers_train = 4
 num_workers_test = 4
 global_sigma = 25.0
-skip_training = False
+skip_training = True
 n_epochs = 100
 learning_rate = 1e-4
 losses = []
@@ -58,7 +58,7 @@ n_angles = 90
 theta_low = 0  # lower value for angles
 theta_max = 90  # higher value for angles
 angles = np.linspace(theta_low, theta_max, n_angles)
-include_gradient_descent = False
+include_gradient_descent = True
 n_posterior_samples = 1
 global_tau = 0.5
 sampling_dir = "sampling1/"  # Directory for current sampling instance
@@ -183,12 +183,17 @@ def euler_maruyama_sampler(score_model,
             if include_gradient_descent:
                 for im_index in range(batch_size):
                     x_decoded = autoencoder_model.decode(x[im_index:im_index+1])
-                    x_decoded = x_decoded[0, 0, :, :].cpu().detach().numpy()
+                    x_decoded = x_decoded[0, :, :, :].cpu().detach().numpy()
 
-                    forward_x = radon(x_decoded, angles, circle=False)  # this is A(Phi)z^{~}_{t+1}
-                    new_x = x_decoded - tau * (iradon(forward_x - y[im_index], angles, circle=False))
+                    new_x = np.zeros_like(x_decoded)
+                    new_x[0] = x_decoded[0] - tau * iradon(radon(x_decoded[0], angles, circle=False) - y[im_index],
+                                                           angles, circle=False)
+                    new_x[1] = x_decoded[1] - tau * iradon(radon(x_decoded[1], angles, circle=False) - y[im_index],
+                                                           angles, circle=False)
+                    new_x[2] = x_decoded[2] - tau * iradon(radon(x_decoded[2], angles, circle=False) - y[im_index],
+                                                           angles, circle=False)
 
-                    new_x = torch.from_numpy(new_x[np.newaxis, np.newaxis, :, :]).expand(-1, 3, -1, -1,).to(device)
+                    new_x = torch.from_numpy(new_x[np.newaxis, :, :, :]).to(device)
                     x_encoded = autoencoder_model.encode_to_prequant(new_x)
 
                     x[im_index, :, :, :] = x_encoded[0]  # convert back to pytorch tensor
@@ -233,8 +238,10 @@ def generate_samples(marginal_prob_std_fn, score_model, diffusion_coeff_fn, im_d
                                                          z=z_init[i], tau=global_tau)
         # posterior_samples_clean = posterior_samples_clean.clamp(0.0, 1.0)
         samples_clean.append(posterior_samples_clean)
+    plt.imshow(samples_clean[0][0].permute(1, 2, 0).cpu().detach().numpy())
+    plt.savefig(experiment_dir + sampling_dir + "encoded_sample.jpg")
     plt.imshow(autoencoder_model.decode(samples_clean[0])[0].permute(1, 2, 0).cpu().detach().numpy())
-    plt.show()
+    plt.savefig(experiment_dir + sampling_dir + "sample.jpg")
 
 
 def main():
