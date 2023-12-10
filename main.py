@@ -43,7 +43,7 @@ batch_size = 32
 num_workers_train = 4
 num_workers_test = 4
 global_sigma = 25.0
-skip_training = True
+skip_training = False
 n_epochs = 100
 learning_rate = 1e-4
 losses = []
@@ -287,11 +287,14 @@ def main():
             num_items = 0
 
             for x in train_loader:
-                x = x.expand(-1, 3, -1, -1)  # Expand x because autoencoder requires rgb image
+                x = x.repeat(1, 3, 1, 1)  # Expand x because autoencoder requires rgb image
                 x = x.to(device)
 
-                x_encoded = autoencoder_model.encode_to_prequant(x)
-                x_decoded = autoencoder_model.decode(x_encoded)
+                # Encode all training samples (This has to be done individually as calling the function on the batch
+                # will cause weird encodings)
+                x_encoded = torch.zeros(x.shape[0], image_channels, encoded_image_size, encoded_image_size).to(device)
+                for i in range(x.shape[0]):
+                    x_encoded[i] = autoencoder_model.encode_to_prequant(x[i:i+1])[0]
 
                 #print(torch.min(x))
                 #print(torch.max(x))
