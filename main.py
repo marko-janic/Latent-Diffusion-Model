@@ -49,7 +49,7 @@ learning_rate = 1e-4
 losses = []
 n_skip_epochs = 4  # Number of epochs to skip for plotting the training
 image_channels = 3
-experiment_dir = "experiments/experiment2/"  # Directory where checkpoint is
+experiment_dir = "experiments/experiment3/"  # Directory where checkpoint is
 
 # Sampling
 num_steps = 100  # Number of sampling steps
