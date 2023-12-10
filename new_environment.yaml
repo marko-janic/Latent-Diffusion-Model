@@ -210,4 +210,7 @@ dependencies:
       - werkzeug==3.0.1
       - yarl==1.9.3
       - zipp==3.17.0
+      - -e git+https://github.com/CompVis/taming-transformers.git@master#egg=taming-transformers
+      - -e git+https://github.com/openai/CLIP.git@main#egg=clip
+      - -e .
 prefix: /home/marko/anaconda3/envs/ldm_stable_diffusion
