@@ -3,6 +3,7 @@
 archive
 models/vq-f4
 venv
+/taming/
 
 # Files
 main_old.py
