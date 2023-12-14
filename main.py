@@ -22,10 +22,10 @@ from models.models import ScoreNet
 
 
 # Datasets
-limited_CT_dataset_path = ("/mnt/c/Users/marko/Desktop/Bachelors Thesis/datasets/limited_CT/"
-                           "limited-CT_64/limited-CT/horizontal_snr25.0.npz")  # local machine wsl
-#limited_CT_dataset_path = os.path.join("..", "bachelors_thesis", "datasets", "limited-CT_64",
-#                                       "limited-CT", "horizontal_snr25.0.npz")  # on sciCORE
+#limited_CT_dataset_path = ("/mnt/c/Users/marko/Desktop/Bachelors Thesis/datasets/limited_CT/"
+#                           "limited-CT_64/limited-CT/horizontal_snr25.0.npz")  # local machine wsl
+limited_CT_dataset_path = os.path.join("..", "bachelors_thesis", "datasets", "limited-CT_64",
+                                       "limited-CT", "horizontal_snr25.0.npz")  # on sciCORE
 image_size = 64
 
 # Autoencoder Model
