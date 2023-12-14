@@ -22,17 +22,18 @@ from models.models import ScoreNet
 
 
 # Datasets
-#limited_CT_dataset_path = ("/mnt/c/Users/marko/Desktop/Bachelors Thesis/datasets/limited_CT/"
-#                           "limited-CT_64/limited-CT/horizontal_snr25.0.npz")  # local machine wsl
-limited_CT_dataset_path = os.path.join("..", "bachelors_thesis", "datasets", "limited-CT_64",
-                                       "limited-CT", "horizontal_snr25.0.npz")  # on sciCORE
-
+limited_CT_dataset_path = ("/mnt/c/Users/marko/Desktop/Bachelors Thesis/datasets/limited_CT/"
+                           "limited-CT_64/limited-CT/horizontal_snr25.0.npz")  # local machine wsl
+#limited_CT_dataset_path = os.path.join("..", "bachelors_thesis", "datasets", "limited-CT_64",
+#                                       "limited-CT", "horizontal_snr25.0.npz")  # on sciCORE
 image_size = 64
 
 # Autoencoder Model
 autoencoder_config_path = "models/vq-f4/config.yaml"
 autoencoder_ckpt_path = "models/vq-f4/model.ckpt"
 encoded_image_size = 16
+encoded_image_min = -5.43
+encoded_image_max = 4.57
 
 # Pytorch
 device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
@@ -45,11 +46,11 @@ num_workers_test = 4
 global_sigma = 25.0
 skip_training = False
 n_epochs = 200
-learning_rate = 1e-4
+learning_rate = 1e-2
 losses = []
 n_skip_epochs = 4  # Number of epochs to skip for plotting the training
 image_channels = 3
-experiment_dir = "experiments/experiment3/"  # Directory where checkpoint is
+experiment_dir = "experiments/experiment4/"  # Directory where checkpoint is
 
 # Sampling
 num_steps = 100  # Number of sampling steps
@@ -282,6 +283,7 @@ def main():
         state = dict(optimizer=optimizer, model=score_model, ema=ema, step=0)
 
         pbar = tqdm(range(n_epochs))
+
         for epoch in pbar:
             avg_loss = 0.
             num_items = 0
@@ -290,12 +292,17 @@ def main():
                 x = x.repeat(1, 3, 1, 1)  # Expand x because autoencoder requires rgb image
                 x = x.to(device)
 
+                plt.imshow(x[0].permute(1, 2, 0).detach().cpu().numpy())
+                plt.show()
+                exit(0)
+
                 # Encode all training samples (This has to be done individually as calling the function on the batch
                 # will cause weird encodings)
                 x_encoded = torch.zeros(x.shape[0], image_channels, encoded_image_size, encoded_image_size).to(device)
                 for i in range(x.shape[0]):
                     x_encoded[i] = autoencoder_model.encode_to_prequant(x[i:i+1])[0]
 
+                # TODO: remove this
                 #print(torch.min(x))
                 #print(torch.max(x))
                 #plt.imshow(x[0].permute(1, 2, 0).cpu().detach().numpy())
@@ -306,12 +313,6 @@ def main():
                 #plt.imshow(x_encoded[0].permute(1, 2, 0).cpu().detach().numpy())
                 #plt.title("Encoded")
                 #plt.show()
-                #print(torch.min(x_decoded))
-                #print(torch.max(x_decoded))
-                #plt.imshow(x_decoded[0].permute(1, 2, 0).cpu().detach().numpy())
-                #plt.title("Decoded")
-                #plt.show()
-                #exit(0)
 
                 loss = loss_fn(score_model, x_encoded, marginal_prob_std_fn)
                 optimizer.zero_grad()
