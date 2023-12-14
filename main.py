@@ -44,7 +44,7 @@ batch_size = 32
 num_workers_train = 4
 num_workers_test = 4
 global_sigma = 25.0
-skip_training = False
+skip_training = True
 n_epochs = 200
 learning_rate = 1e-2
 losses = []
@@ -59,10 +59,10 @@ n_angles = 90
 theta_low = 0  # lower value for angles
 theta_max = 90  # higher value for angles
 angles = np.linspace(theta_low, theta_max, n_angles)
-include_gradient_descent = True
+include_gradient_descent = False
 n_posterior_samples = 1
 global_tau = 0.5
-sampling_dir = "sampling1/"  # Directory for current sampling instance
+sampling_dir = "sampling2/"  # Directory for current sampling instance
 
 
 class LimitedCT64X64Loader(Dataset):
