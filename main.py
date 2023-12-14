@@ -292,10 +292,6 @@ def main():
                 x = x.repeat(1, 3, 1, 1)  # Expand x because autoencoder requires rgb image
                 x = x.to(device)
 
-                plt.imshow(x[0].permute(1, 2, 0).detach().cpu().numpy())
-                plt.show()
-                exit(0)
-
                 # Encode all training samples (This has to be done individually as calling the function on the batch
                 # will cause weird encodings)
                 x_encoded = torch.zeros(x.shape[0], image_channels, encoded_image_size, encoded_image_size).to(device)
