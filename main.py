@@ -138,6 +138,7 @@ def loss_fn(model, x, marginal_prob_std, autoencoder_model, eps=1e-5):
     x_perturbed_encoded = autoencoder_model.encode_to_prequant(perturbed_x)
 
     score = model(x_perturbed_encoded, random_t)
+    print(score.shape)
 
     loss = torch.mean(torch.sum((score * std[:, None, None, None] + z)**2, dim=(1, 2, 3)))
     return loss
