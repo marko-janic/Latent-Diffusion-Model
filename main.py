@@ -126,18 +126,14 @@ def loss_fn(model, x, marginal_prob_std, autoencoder_model, eps=1e-5):
       autoencoder_model: autoencoder used to decode and encode into latent space
       eps: A tolerance value for numerical stability.
     """
-    x_decoded = autoencoder_model.decode(x)
-    x_decoded.to(x.device)
 
-    random_t = torch.rand(x_decoded.shape[0], device=x.device) * (1. - eps) + eps
-    z = torch.randn_like(x_decoded)
-    std = marginal_prob_std(random_t, device=x_decoded.device)
+    random_t = torch.rand(x.shape[0], device=x.device) * (1. - eps) + eps
+    z = torch.randn_like(x)
+    std = marginal_prob_std(random_t, device=x.device)
 
-    perturbed_x = x_decoded + z * std[:, None, None, None]
+    perturbed_x = x + z * std[:, None, None, None]
 
-    x_perturbed_encoded = autoencoder_model.encode_to_prequant(perturbed_x)
-
-    score = model(x_perturbed_encoded, random_t)
+    score = model(perturbed_x, random_t)
     print(score.shape)
 
     loss = torch.mean(torch.sum((score * std[:, None, None, None] + z)**2, dim=(1, 2, 3)))
