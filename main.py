@@ -46,11 +46,11 @@ num_workers_test = 4
 global_sigma = 25.0
 skip_training = False
 n_epochs = 200
-learning_rate = 1e-2
+learning_rate = 1e-3
 losses = []
 n_skip_epochs = 4  # Number of epochs to skip for plotting the training
 image_channels = 3
-experiment_dir = "experiments/experiment4/"  # Directory where checkpoint is
+experiment_dir = "experiments/experiment5/"  # Directory where checkpoint is
 
 # Sampling
 num_steps = 100  # Number of sampling steps
@@ -114,7 +114,7 @@ def load_model_from_config(config, ckpt, verbose=False):
     return model
 
 
-def loss_fn(model, x, marginal_prob_std, eps=1e-5):
+def loss_fn(model, x, marginal_prob_std, autoencoder_model, eps=1e-5):
     """The loss function for training score-based generative models.
 
     Args:
@@ -123,15 +123,21 @@ def loss_fn(model, x, marginal_prob_std, eps=1e-5):
       x: A mini-batch of training data.
       marginal_prob_std: A function that gives the standard deviation of
         the perturbation kernel.
+      autoencoder_model: autoencoder used to decode and encode into latent space
       eps: A tolerance value for numerical stability.
     """
-    random_t = torch.rand(x.shape[0], device=x.device) * (1. - eps) + eps
-    z = torch.randn_like(x)
-    std = marginal_prob_std(random_t, device=x.device)
+    x_decoded = autoencoder_model.decode(x)
+    x_decoded.to(x.device)
 
-    perturbed_x = x + z * std[:, None, None, None]
+    random_t = torch.rand(x_decoded.shape[0], device=x.device) * (1. - eps) + eps
+    z = torch.randn_like(x_decoded)
+    std = marginal_prob_std(random_t, device=x_decoded.device)
 
-    score = model(perturbed_x, random_t)
+    perturbed_x = x_decoded + z * std[:, None, None, None]
+
+    x_perturbed_encoded = autoencoder_model.encode_to_prequant(perturbed_x)
+
+    score = model(x_perturbed_encoded, random_t)
 
     loss = torch.mean(torch.sum((score * std[:, None, None, None] + z)**2, dim=(1, 2, 3)))
     return loss
@@ -310,7 +316,7 @@ def main():
                 #plt.title("Encoded")
                 #plt.show()
 
-                loss = loss_fn(score_model, x_encoded, marginal_prob_std_fn)
+                loss = loss_fn(score_model, x_encoded, marginal_prob_std_fn, autoencoder_model)
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
