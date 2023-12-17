@@ -1,1 +1,1 @@
-this model was trained with the new loss function where we first decode and then we evaluate the score.
+This model was trained in an unconditional manner

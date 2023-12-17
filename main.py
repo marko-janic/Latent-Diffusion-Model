@@ -1,8 +1,8 @@
 # Library imports
 import torch
+import sys
 import functools
 import numpy as np
-import os
 import matplotlib.pyplot as plt
 import torchvision.transforms as transforms
 from skimage.transform import radon, iradon
@@ -12,6 +12,7 @@ from torch.utils.data import Dataset, DataLoader
 from torch.optim import Adam
 from ema import ExponentialMovingAverage
 from tqdm import tqdm
+from datetime import datetime
 
 # Local file imports
 from ldm.util import instantiate_from_config
@@ -22,18 +23,16 @@ from models.models import ScoreNet
 
 
 # Datasets
-#limited_CT_dataset_path = ("/mnt/c/Users/marko/Desktop/Bachelors Thesis/datasets/limited_CT/"
-#                           "limited-CT_64/limited-CT/horizontal_snr25.0.npz")  # local machine wsl
-limited_CT_dataset_path = os.path.join("..", "bachelors_thesis", "datasets", "limited-CT_64",
-                                       "limited-CT", "horizontal_snr25.0.npz")  # on sciCORE
+limited_CT_dataset_path = ("/mnt/c/Users/marko/Desktop/Bachelors Thesis/datasets/limited_CT/"
+                           "limited-CT_64/limited-CT/horizontal_snr25.0.npz")  # local machine wsl
+#limited_CT_dataset_path = os.path.join("..", "bachelors_thesis", "datasets", "limited-CT_64",
+#                                       "limited-CT", "horizontal_snr25.0.npz")  # on sciCORE
 image_size = 64
 
 # Autoencoder Model
 autoencoder_config_path = "models/vq-f4/config.yaml"
 autoencoder_ckpt_path = "models/vq-f4/model.ckpt"
 encoded_image_size = 16
-encoded_image_min = -5.43
-encoded_image_max = 4.57
 
 # Pytorch
 device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
@@ -44,25 +43,31 @@ batch_size = 32
 num_workers_train = 4
 num_workers_test = 4
 global_sigma = 25.0
-skip_training = False
-n_epochs = 200
+n_epochs = 100
 learning_rate = 1e-3
 losses = []
 n_skip_epochs = 4  # Number of epochs to skip for plotting the training
 image_channels = 3
-experiment_dir = "experiments/experiment5/"  # Directory where checkpoint is
+experiment_dir = "experiments/experiment6/"  # Directory where checkpoint is
 
 # Sampling
 num_steps = 100  # Number of sampling steps
 sample_batch_size = 4
 n_angles = 90
 theta_low = 0  # lower value for angles
-theta_max = 90  # higher value for angles
+theta_max = 180  # higher value for angles
 angles = np.linspace(theta_low, theta_max, n_angles)
-include_gradient_descent = False
 n_posterior_samples = 1
 global_tau = 0.5
-sampling_dir = "sampling2/"  # Directory for current sampling instance
+sampling_dir = "sampling1/"  # Directory for current sampling instance
+
+# Program arguments:
+conditional_training = True
+include_gradient_descent = True
+skip_training = False
+additional_comments_training = ""
+additional_comments_sampling = ""
+limited_view = False
 
 
 class LimitedCT64X64Loader(Dataset):
@@ -243,8 +248,13 @@ def generate_samples(marginal_prob_std_fn, score_model, diffusion_coeff_fn, im_d
         samples_clean.append(posterior_samples_clean)
     plt.imshow(samples_clean[0][0].permute(1, 2, 0).cpu().detach().numpy())
     plt.savefig(experiment_dir + sampling_dir + "encoded_sample.jpg")
+    plt.title("Encoded Sample")
     plt.imshow(autoencoder_model.decode(samples_clean[0])[0].permute(1, 2, 0).cpu().detach().numpy())
+    plt.title("Decoded Sample")
     plt.savefig(experiment_dir + sampling_dir + "sample.jpg")
+    plt.imshow(true_images[0], cmap="gray")
+    plt.title("Ground Truth")
+    plt.savefig(experiment_dir + sampling_dir + "ground_truth")
 
 
 def main():
@@ -298,19 +308,15 @@ def main():
                 # will cause weird encodings)
                 x_encoded = torch.zeros(x.shape[0], image_channels, encoded_image_size, encoded_image_size).to(device)
                 for i in range(x.shape[0]):
-                    x_encoded[i] = autoencoder_model.encode_to_prequant(x[i:i+1])[0]
+                    x_encoded[i][0:3] = autoencoder_model.encode_to_prequant(x[i:i+1])[0]
 
-                # TODO: remove this
-                #print(torch.min(x))
-                #print(torch.max(x))
-                #plt.imshow(x[0].permute(1, 2, 0).cpu().detach().numpy())
-                #plt.title("Ground Truth")
-                #plt.show()
-                #print(torch.min(x_encoded))
-                #print(torch.max(x_encoded))
-                #plt.imshow(x_encoded[0].permute(1, 2, 0).cpu().detach().numpy())
-                #plt.title("Encoded")
-                #plt.show()
+                if conditional_training:  # We add the fbp reconstruction of x to the channels 3-5 (conditioning input)
+                    for i in range(x.shape[0]):
+                        x_fbp = iradon(radon(x[i, 0].detach().cpu().numpy(), angles, circle=False), angles, circle=False)
+                        x_fbp = torch.from_numpy(x_fbp)
+                        x_fbp = x_fbp[None, None, :, :].repeat(1, 3, 1, 1).to(device)
+                        x_fbp_encoded = autoencoder_model.encode_to_prequant(x_fbp)
+                        x_encoded[i][3:6] = x_fbp_encoded[0]  # add the conditioning input
 
                 loss = loss_fn(score_model, x_encoded, marginal_prob_std_fn, autoencoder_model)
                 optimizer.zero_grad()
@@ -332,10 +338,33 @@ def main():
                 plt.savefig(experiment_dir + "losses.jpg")
                 plt.clf()
 
+        # Information about the trained checkpoint
+        file = open(experiment_dir + "training_parameters" + ".txt", "w")
+        now = datetime.now()
+
+        file.write("Parameters for training done on " + str(now) + ": \n" +
+                   "Conditionally trained: " + str(conditional_training) + "\n" +
+                   "FBP reconstruction number of angles: " + str(n_angles) + "\n" +
+                   "FBP reconstruction angles :" + str(theta_low) + " to " + str(theta_max) + "\n" +
+                   additional_comments_training)
+
     # Sampling =========================================================================================================
     generate_samples(marginal_prob_std_fn, score_model, diffusion_coeff_fn, test_dataset,
                      autoencoder_model=autoencoder_model)
 
 
 if __name__ == "__main__":
+    pattern_experiment_dir = r'^exdir:(.*)'
+    pattern_sampling_dir = r'^sampledir:(.*)'
+
+    if "sample" in sys.argv:
+        skip_training = True
+    if "conditional" in sys.argv:
+        image_channels = 6
+        conditional_training = True
+    if "limitedview" in sys.argv:  # Limited view just changes the viewing angles from 0-180 to 0-90
+        limited_view = True
+        theta_max = 90
+        angles = np.linspace(theta_low, theta_max, n_angles)
+
     main()
