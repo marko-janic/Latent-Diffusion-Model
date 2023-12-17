@@ -2,6 +2,7 @@
 import torch
 import sys
 import functools
+import re
 import numpy as np
 import matplotlib.pyplot as plt
 import torchvision.transforms as transforms
@@ -353,6 +354,14 @@ def main():
                      autoencoder_model=autoencoder_model)
 
 
+def string_match(array, pattern):
+    for string in array:
+        match = re.search(pattern, string)
+        if match:
+            return match.group(1)
+    return None
+
+
 if __name__ == "__main__":
     pattern_experiment_dir = r'^exdir:(.*)'
     pattern_sampling_dir = r'^sampledir:(.*)'
@@ -366,5 +375,13 @@ if __name__ == "__main__":
         limited_view = True
         theta_max = 90
         angles = np.linspace(theta_low, theta_max, n_angles)
+
+    experiment_dir_found = string_match(sys.argv, pattern_experiment_dir)
+    if experiment_dir_found:
+        experiment_dir = "experiments/" + experiment_dir_found + "/"
+
+    sampling_dir_found = string_match(sys.argv, pattern_sampling_dir)
+    if sampling_dir_found:
+        sampling_dir = sampling_dir_found + "/"
 
     main()

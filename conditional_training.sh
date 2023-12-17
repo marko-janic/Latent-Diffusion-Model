@@ -1,1 +1,1 @@
-python3 main.py conditional limitedview
+python3 main.py conditional limitedview exdir:experiment6 sampledir:sampling1
