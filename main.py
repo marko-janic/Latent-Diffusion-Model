@@ -136,13 +136,16 @@ def loss_fn(model, x, marginal_prob_std, autoencoder_model, eps=1e-5):
 
     random_t = torch.rand(x.shape[0], device=x.device) * (1. - eps) + eps
     z = torch.randn_like(x)
+    if conditional_training:
+        z[:, 3:6, :, :] = 0  # we don't want to add noise to the conditioning input
     std = marginal_prob_std(random_t, device=x.device)
 
     perturbed_x = x + z * std[:, None, None, None]
 
     score = model(perturbed_x, random_t)
 
-    loss = torch.mean(torch.sum((score * std[:, None, None, None] + z)**2, dim=(1, 2, 3)))
+    # z is [:, 0:3] because we don't want to add noise to the conditioning input
+    loss = torch.mean(torch.sum((score * std[:, None, None, None] + z[:, :3])**2, dim=(1, 2, 3)))
     return loss
 
 
