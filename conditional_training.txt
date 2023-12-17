@@ -1,1 +1,2 @@
-python3 main.py conditional limitedview exdir:experiment6 sampledir:sampling1
+# Conditional Training with FULL view sinograms
+python3 main.py conditional exdir:experiment6 sampledir:sampling1

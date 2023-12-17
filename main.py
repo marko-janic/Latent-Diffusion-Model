@@ -347,6 +347,7 @@ def main():
                    "Conditionally trained: " + str(conditional_training) + "\n" +
                    "FBP reconstruction number of angles: " + str(n_angles) + "\n" +
                    "FBP reconstruction angles :" + str(theta_low) + " to " + str(theta_max) + "\n" +
+                   "Number of epochs: " + str(n_epochs) + "\n" +
                    additional_comments_training)
 
     # Sampling =========================================================================================================
