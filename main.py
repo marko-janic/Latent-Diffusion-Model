@@ -37,7 +37,7 @@ autoencoder_ckpt_path = "models/vq-f4/model.ckpt"
 encoded_image_size = 16
 
 # Pytorch
-device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+device = torch.device("cuda") #if torch.cuda.is_available() else torch.device("cpu")
 print("Torch Device: " + str(device))
 
 # Training
