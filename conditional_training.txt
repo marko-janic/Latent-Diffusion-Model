@@ -1,2 +1,2 @@
-# Conditional Training with FULL view sinograms
+# Full view sinograms:
 python3 main.py conditional exdir:experiment6 sampledir:sampling1
