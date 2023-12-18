@@ -5,6 +5,7 @@ import sys
 import functools
 import re
 import numpy as np
+import matplotlib
 import matplotlib.pyplot as plt
 import torchvision.transforms as transforms
 from skimage.transform import radon, iradon
@@ -25,10 +26,10 @@ from models.models import ScoreNet
 
 
 # Datasets
-#limited_CT_dataset_path = ("/mnt/c/Users/marko/Desktop/Bachelors Thesis/datasets/limited_CT/"
-#                           "limited-CT_64/limited-CT/horizontal_snr25.0.npz")  # local machine wsl
-limited_CT_dataset_path = os.path.join("..", "bachelors_thesis", "datasets", "limited-CT_64",
-                                       "limited-CT", "horizontal_snr25.0.npz")  # on sciCORE
+limited_CT_dataset_path = ("/mnt/c/Users/marko/Desktop/Bachelors Thesis/datasets/limited_CT/"
+                           "limited-CT_64/limited-CT/horizontal_snr25.0.npz")  # local machine wsl
+#limited_CT_dataset_path = os.path.join("..", "bachelors_thesis", "datasets", "limited-CT_64",
+#                                       "limited-CT", "horizontal_snr25.0.npz")  # on sciCORE
 image_size = 64
 
 # Autoencoder Model
@@ -50,26 +51,37 @@ learning_rate = 1e-3
 losses = []
 n_skip_epochs = 4  # Number of epochs to skip for plotting the training
 image_channels = 3
-experiment_dir = "experiments/experiment6/"  # Directory where checkpoint is
+experiment_dir = "experiments/experiment5/"  # Directory where checkpoint is
 
 # Sampling
 num_steps = 100  # Number of sampling steps
-sample_batch_size = 4
+sample_batch_size = 5
 n_angles = 90
 theta_low = 0  # lower value for angles
 theta_max = 180  # higher value for angles
 angles = np.linspace(theta_low, theta_max, n_angles)
-n_posterior_samples = 1
+n_posterior_samples = 4
 global_tau = 0.5
-sampling_dir = "sampling1/"  # Directory for current sampling instance
+sampling_dir = "sampling3/"  # Directory for current sampling instance
+n_column_samples = 5
+n_columns = 7
+visualisation_cmap = "gray"
 
 # Program arguments:
 conditional_training = True
-include_gradient_descent = True
-skip_training = False
+include_gradient_descent = False
+skip_training = True
 additional_comments_training = ""
 additional_comments_sampling = ""
 limited_view = False
+
+# Checkers
+if n_posterior_samples < 3:
+    raise Exception("Number of posterior samples need to be at least 3")
+if sample_batch_size < 2:
+    raise Exception("Sample Batch size cannot be less than 2")
+if n_column_samples < 2:
+    raise Exception("Number of column samples cannot be less than 2")
 
 
 class LimitedCT64X64Loader(Dataset):
@@ -99,6 +111,41 @@ class LimitedCT64X64Loader(Dataset):
         img = Image.fromarray(np.uint8(img), 'L')  # Transforms to PIL image for self.transform
         img = self.transform(img)
         return img
+
+
+def column_visualization(true_images, samples_fbp, samples, samples_std, samples_mean, fbp_title, sample_title,
+                         figure_title):
+    plt.close("all")
+    fig, axs = plt.subplots(nrows=n_column_samples, ncols=n_columns, figsize=(n_columns, n_column_samples + 0.5),
+                            dpi=600)
+    matplotlib.rcParams.update({'font.size': 7})
+    matplotlib.rcParams.update({'figure.dpi': 600})
+
+    axs[0, 0].set_title("Ground Truth")
+    axs[0, 1].set_title(fbp_title)
+    axs[0, 2].set_title(sample_title)
+    axs[0, 5].set_title("STD")
+    axs[0, 6].set_title("MEAN")
+
+    print(axs.shape)
+    print(len(true_images))
+    for i in range(n_column_samples):
+        axs[i, 0].imshow(true_images[i], cmap=visualisation_cmap)
+        axs[i, 1].imshow(samples_fbp[i], cmap=visualisation_cmap)
+        axs[i, 2].imshow(samples[0, i].permute(1, 2, 0).cpu().detach().numpy(), cmap=visualisation_cmap)
+        axs[i, 3].imshow(samples[1, i].permute(1, 2, 0).cpu().detach().numpy(), cmap=visualisation_cmap)
+        axs[i, 4].imshow(samples[2, i].permute(1, 2, 0).cpu().detach().numpy(), cmap=visualisation_cmap)
+        axs[i, 5].imshow(samples_std[0, i, 0], cmap=visualisation_cmap)
+        axs[i, 6].imshow(samples_mean[0, i, 0], cmap=visualisation_cmap)
+
+    for ax in axs.flat:
+        ax.set_xticks([])
+        ax.set_yticks([])
+        ax.axis("off")
+
+    fig.tight_layout()
+    plt.subplots_adjust(wspace=0, hspace=0)
+    plt.savefig(experiment_dir + sampling_dir + figure_title + '.jpg', dpi=600)
 
 
 def load_model_from_config(config, ckpt, verbose=False):
@@ -239,7 +286,7 @@ def generate_samples(marginal_prob_std_fn, score_model, diffusion_coeff_fn, im_d
     for i in range(sample_batch_size):
         samples_fbp_clean.append(iradon(y[i], angles, circle=False))
 
-    samples_clean = []
+    encoded_samples_clean = []
     for i in range(n_posterior_samples):
         posterior_samples_clean = euler_maruyama_sampler(score_model,
                                                          y,
@@ -250,16 +297,27 @@ def generate_samples(marginal_prob_std_fn, score_model, diffusion_coeff_fn, im_d
                                                          device=device,
                                                          z=z_init[i], tau=global_tau)
         # posterior_samples_clean = posterior_samples_clean.clamp(0.0, 1.0)
-        samples_clean.append(posterior_samples_clean)
-    plt.imshow(samples_clean[0][0].permute(1, 2, 0).cpu().detach().numpy())
-    plt.savefig(experiment_dir + sampling_dir + "encoded_sample.jpg")
-    plt.title("Encoded Sample")
-    plt.imshow(autoencoder_model.decode(samples_clean[0])[0].permute(1, 2, 0).cpu().detach().numpy())
-    plt.title("Decoded Sample")
-    plt.savefig(experiment_dir + sampling_dir + "sample.jpg")
-    plt.imshow(true_images[0], cmap="gray")
-    plt.title("Ground Truth")
-    plt.savefig(experiment_dir + sampling_dir + "ground_truth")
+        encoded_samples_clean.append(posterior_samples_clean)
+
+    samples_clean = torch.zeros(n_posterior_samples, sample_batch_size, image_channels, image_size, image_size)
+    for i in range(n_posterior_samples):
+        for j in range(sample_batch_size):
+            samples_clean[i, j:j+1] = autoencoder_model.decode(encoded_samples_clean[i][j:j+1])
+
+    # Get STD of samples ===============================================================================================
+    #samples_clean = torch.stack(samples_clean)
+    # samples tensor has dimensions n_posterior_samples x sample_batch_size x n_channels x im_size x im_size
+    print(samples_clean.shape)
+    samples_clean_std = torch.std(samples_clean, dim=0, keepdim=True)
+    samples_clean_std = samples_clean_std.cpu().detach().numpy()
+    rescaled_samples_clean_std = (samples_clean_std - np.min(samples_clean_std)) / \
+                                 (np.max(samples_clean_std) - np.min(samples_clean_std))
+
+    # Get Mean of all posterior samples ================================================================================
+    samples_clean_mean = torch.mean(samples_clean, dim=0, keepdim=True).cpu().detach().numpy()
+
+    column_visualization(true_images, samples_fbp_clean, samples_clean, rescaled_samples_clean_std, samples_clean_mean,
+                         "FBP, clean y", "Clean samples", "column_visualization_clean")
 
 
 def main():
