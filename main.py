@@ -446,4 +446,13 @@ if __name__ == "__main__":
     if sampling_dir_found:
         sampling_dir = sampling_dir_found + "/"
 
+    print("\nProgram arguments for this session are: \n\n" +
+          "skip_training: " + str(skip_training) + "\n" +
+          "conditional_training: " + str(conditional_training) + "\n" +
+          "include_gradient_descent: " + str(include_gradient_descent) + "\n" +
+          "theta_max (Limited view sinograms): " + str(theta_max) + "\n" +
+          "experiment_dir: " + str(experiment_dir) + "\n" +
+          "sampling_dir: " + str(sampling_dir) + "\n" +
+          "visualisation_cmap: " + str(visualisation_cmap))
+
     main()
