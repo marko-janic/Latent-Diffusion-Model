@@ -1,2 +1,5 @@
 # Full view sinograms:
 python3 main.py conditional exdir:experiment6 sampledir:sampling1
+
+# Limited view sinograms:
+python3 main.py conditional limitedview exdir:experiment7 sampledir:sampling1

@@ -305,7 +305,6 @@ def generate_samples(marginal_prob_std_fn, score_model, diffusion_coeff_fn, im_d
             samples_clean[i, j:j+1] = autoencoder_model.decode(encoded_samples_clean[i][j:j+1])
 
     # Get STD of samples ===============================================================================================
-    #samples_clean = torch.stack(samples_clean)
     # samples tensor has dimensions n_posterior_samples x sample_batch_size x n_channels x im_size x im_size
     print(samples_clean.shape)
     samples_clean_std = torch.std(samples_clean, dim=0, keepdim=True)
@@ -317,7 +316,7 @@ def generate_samples(marginal_prob_std_fn, score_model, diffusion_coeff_fn, im_d
     samples_clean_mean = torch.mean(samples_clean, dim=0, keepdim=True).cpu().detach().numpy()
 
     column_visualization(true_images, samples_fbp_clean, samples_clean, rescaled_samples_clean_std, samples_clean_mean,
-                         "FBP, clean y", "Clean samples", "column_visualization_clean")
+                         "FBP, y", "Samples", "column_visualization")
 
 
 def main():
