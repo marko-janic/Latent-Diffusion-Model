@@ -70,7 +70,7 @@ visualisation_cmap = "gray"
 # Program arguments:
 conditional_training = True
 include_gradient_descent = False
-skip_training = True
+skip_training = False
 additional_comments_training = ""
 additional_comments_sampling = ""
 limited_view = False
