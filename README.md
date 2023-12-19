@@ -3,7 +3,7 @@
 
 # Dataset
  The dataset we used can be downloaded from the following github repo: https://github.com/swing-research/conditional-trumpets
- Make sure to renam the dataset path variable in main.py
+ Make sure to rename the dataset path variable in main.py
 
 # Autoencoder
  The autoencoder used for this experiment can be found in the following github repo: https://github.com/CompVis/latent-diffusion#model-zoo
