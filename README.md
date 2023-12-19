@@ -9,6 +9,13 @@
  The autoencoder used for this experiment can be found in the following github repo: https://github.com/CompVis/latent-diffusion#model-zoo
  Make sure to place your downloaded model such that your directory structure looks as follows: ```models/vq-f4/model.ckpt```
 
+# Environment
+ A suitable conda environment for this experiment can be found in the ```environment.yaml``` file. To create and then enter the environment run the following commands:
+ ```
+ conda env create -f environment.yaml
+ conda activate ldm
+ ```
+
 # Training and Sampling
  In the ```scripts``` directory we have files with example usages of how to train and sample.
 
