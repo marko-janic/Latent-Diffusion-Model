@@ -3,7 +3,7 @@
 
 # Dataset
  The dataset we used can be downloaded from the following github repo: https://github.com/swing-research/conditional-trumpets
- Make sure to rename the dataset path variable in main.py
+ Make sure to rename the dataset path variable in ```main.py```
 
 # Autoencoder
  The autoencoder used for this experiment can be found in the following github repo: https://github.com/CompVis/latent-diffusion#model-zoo
@@ -11,3 +11,7 @@
 
 # Training and Sampling
  In the ```scripts``` directory we have files with example usages of how to train and sample.
+
+# Custom Dataset
+ If you wanna run this experiment with a custom dataset make sure to adjust the data loader in ```main.py```. Any dataset with rgb images should work for this experiment. Keep in mind that using the "conditional" option while running will 
+ require you to input an additional image to your model.
