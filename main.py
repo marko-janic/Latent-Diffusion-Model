@@ -26,10 +26,10 @@ from models.models import ScoreNet
 
 
 # Datasets
-#limited_CT_dataset_path = ("/mnt/c/Users/marko/Desktop/Bachelors Thesis/datasets/limited_CT/"
-#                           "limited-CT_64/limited-CT/horizontal_snr25.0.npz")  # local machine wsl
-limited_CT_dataset_path = os.path.join("..", "bachelors_thesis", "datasets", "limited-CT_64",
-                                       "limited-CT", "horizontal_snr25.0.npz")  # on sciCORE
+limited_CT_dataset_path = ("/mnt/c/Users/marko/Desktop/Bachelors Thesis/datasets/limited_CT/"
+                           "limited-CT_64/limited-CT/horizontal_snr25.0.npz")  # local machine wsl
+#limited_CT_dataset_path = os.path.join("..", "bachelors_thesis", "datasets", "limited-CT_64",
+#                                       "limited-CT", "horizontal_snr25.0.npz")  # on sciCORE
 image_size = 64
 
 # Autoencoder Model
@@ -69,8 +69,8 @@ visualisation_cmap = "gray"
 
 # Program arguments:
 conditional_training = True
-include_gradient_descent = False
-skip_training = False
+include_gradient_descent = True
+skip_training = True
 additional_comments_training = ""
 additional_comments_sampling = ""
 limited_view = False
@@ -229,34 +229,32 @@ def euler_maruyama_sampler(score_model,
     time_steps = torch.linspace(1., eps, num_steps, device=device)
     step_size = time_steps[0] - time_steps[1]
     x = z
+    x.requires_grad = True
 
-    with (torch.no_grad()):
-        for time_step in tqdm(time_steps):
-            batch_time_step = torch.ones(batch_size, device=device) * time_step
-            g = diffusion_coeff(batch_time_step, device=device)
+    #with (torch.no_grad()):
+    for time_step in tqdm(time_steps):
+        batch_time_step = torch.ones(batch_size, device=device) * time_step
+        g = diffusion_coeff(batch_time_step, device=device)
 
-            mean_x = x + (g ** 2)[:, None, None, None] * score_model(x, batch_time_step) * step_size
+        mean_x = x + (g ** 2)[:, None, None, None] * score_model(x, batch_time_step) * step_size
 
-            x = mean_x + torch.sqrt(step_size) * g[:, None, None, None] * torch.randn_like(x)
+        x = mean_x + torch.sqrt(step_size) * g[:, None, None, None] * torch.randn_like(x)
 
-            # Add filtered back projection to make sampler conditional
-            if include_gradient_descent:
-                for im_index in range(batch_size):
-                    x_decoded = autoencoder_model.decode(x[im_index:im_index+1])
-                    x_decoded = x_decoded[0, :, :, :].cpu().detach().numpy()
-
-                    new_x = np.zeros_like(x_decoded)
-                    new_x[0] = x_decoded[0] - tau * iradon(radon(x_decoded[0], angles, circle=False) - y[im_index],
-                                                           angles, circle=False)
-                    new_x[1] = x_decoded[1] - tau * iradon(radon(x_decoded[1], angles, circle=False) - y[im_index],
-                                                           angles, circle=False)
-                    new_x[2] = x_decoded[2] - tau * iradon(radon(x_decoded[2], angles, circle=False) - y[im_index],
-                                                           angles, circle=False)
-
-                    new_x = torch.from_numpy(new_x[np.newaxis, :, :, :]).to(device)
-                    x_encoded = autoencoder_model.encode_to_prequant(new_x)
-
-                    x[im_index, :, :, :] = x_encoded[0]  # convert back to pytorch tensor
+        # Add filtered back projection to make sampler conditional
+        if include_gradient_descent:
+            for im_index in range(batch_size):
+                #x_external = torch.zeros(x.shape[1], x.shape[2], x.shape[3])
+                #for i in range(3):  # for all image channels
+                #    x_external[i] = torch.from_numpy(iradon(radon(x[im_index, i].detach().cpu().numpy(),
+                #                                                  angles, circle=False) -
+                #                                            y[im_index][i].detach().cpu().numpy(),
+                #                                            angles, circle=False))
+                #x_external = x_external.to(device)
+                #x[im_index].backward(x_external)
+                for i in range(3):  # all image channels
+                    x[im_index, i] = (x[im_index, i] - tau * torch.from_numpy(
+                        iradon(radon(x[im_index, i].detach().cpu().numpy(), angles, circle=False)
+                               - y[im_index][i].detach().cpu().numpy(), angles, circle=False)).to(device))
     return mean_x
 
 
@@ -278,8 +276,17 @@ def generate_samples(marginal_prob_std_fn, score_model, diffusion_coeff_fn, im_d
 
     # Get measurements from training set to make sampling conditional
     y = []
+    y_encoded = []  # we want to have the y measurement in the latent space domain as well here
     for i in range(sample_batch_size):
         y.append(radon(true_images[i], angles, circle=False))  # im from dataset that makes it conditional
+        image = true_images[i][None, None, :, :]
+        image = torch.from_numpy(image).repeat(1, 3, 1, 1).to(device)
+        encoded = autoencoder_model.encode_to_prequant(image)
+        # you can get 23 by looking at the shape after radon
+        y_encoding = torch.zeros(3, 23, n_angles)
+        for j in range(3):  # all image channels
+            y_encoding[j] = torch.from_numpy(radon(encoded.detach().cpu().numpy()[0, 0], angles, circle=False))
+        y_encoded.append(y_encoding)
 
     # Compute FBP reconstruction
     samples_fbp_clean = []
@@ -289,7 +296,7 @@ def generate_samples(marginal_prob_std_fn, score_model, diffusion_coeff_fn, im_d
     encoded_samples_clean = []
     for i in range(n_posterior_samples):
         posterior_samples_clean = euler_maruyama_sampler(score_model,
-                                                         y,
+                                                         y_encoded,
                                                          marginal_prob_std_fn,
                                                          diffusion_coeff_fn,
                                                          batch_size=sample_batch_size,
