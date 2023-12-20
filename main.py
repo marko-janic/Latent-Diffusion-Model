@@ -50,30 +50,30 @@ n_epochs = 100
 learning_rate = 1e-3
 losses = []
 n_skip_epochs = 4  # Number of epochs to skip for plotting the training
-image_channels = 3
-experiment_dir = "experiments/experiment5/"  # Directory where checkpoint is
+image_channels = 6
+experiment_dir = "experiments/experiment7/"  # Directory where checkpoint is
 
 # Sampling
 num_steps = 100  # Number of sampling steps
 sample_batch_size = 5
 n_angles = 90
 theta_low = 0  # lower value for angles
-theta_max = 180  # higher value for angles
+theta_max = 90  # higher value for angles
 angles = np.linspace(theta_low, theta_max, n_angles)
-n_posterior_samples = 4
+n_posterior_samples = 10
 global_tau = 0.5
-sampling_dir = "sampling3/"  # Directory for current sampling instance
+sampling_dir = "sampling1/"  # Directory for current sampling instance
 n_column_samples = 5
 n_columns = 7
 visualisation_cmap = "gray"
 
 # Program arguments:
 conditional_training = True
-include_gradient_descent = True
+include_gradient_descent = False
 skip_training = True
 additional_comments_training = ""
 additional_comments_sampling = ""
-limited_view = False
+limited_view = True
 
 # Checkers
 if n_posterior_samples < 3:
@@ -127,8 +127,6 @@ def column_visualization(true_images, samples_fbp, samples, samples_std, samples
     axs[0, 5].set_title("STD")
     axs[0, 6].set_title("MEAN")
 
-    print(axs.shape)
-    print(len(true_images))
     for i in range(n_column_samples):
         axs[i, 0].imshow(true_images[i], cmap=visualisation_cmap)
         axs[i, 1].imshow(samples_fbp[i], cmap=visualisation_cmap)
@@ -231,12 +229,22 @@ def euler_maruyama_sampler(score_model,
     x = z
     x.requires_grad = True
 
+    x_fbp = torch.zeros_like(x)
+    for im_index in range(x.shape[0]):
+        for i in range(3):
+            x_fbp[im_index:im_index+1] = autoencoder_model.encode_to_prequant(
+                torch.from_numpy(iradon(y[im_index], angles, circle=False))[None, None, :, :].repeat(1, 3, 1, 1).to(device))
+
     #with (torch.no_grad()):
     for time_step in tqdm(time_steps):
         batch_time_step = torch.ones(batch_size, device=device) * time_step
         g = diffusion_coeff(batch_time_step, device=device)
 
-        mean_x = x + (g ** 2)[:, None, None, None] * score_model(x, batch_time_step) * step_size
+        if conditional_training:
+            mean_x = x + (g ** 2)[:, None, None, None] * score_model(torch.cat((x, x_fbp), dim=1),
+                                                                     batch_time_step) * step_size
+        else:
+            mean_x = x + (g ** 2)[:, None, None, None] * score_model(x, batch_time_step) * step_size
 
         x = mean_x + torch.sqrt(step_size) * g[:, None, None, None] * torch.randn_like(x)
 
@@ -272,14 +280,15 @@ def generate_samples(marginal_prob_std_fn, score_model, diffusion_coeff_fn, im_d
     # Get true images
     true_images = []
     for i in range(sample_batch_size):
-        true_images.append(im_dataset.__getitem__(i).cpu().detach().numpy()[0])
+        true_images.append(im_dataset.__getitem__(i)[0][None].repeat(3, 1, 1).permute(1, 2, 0).cpu().detach().numpy())
+        #true_images.append(im_dataset.__getitem__(i).cpu().detach().numpy()[0])
 
     # Get measurements from training set to make sampling conditional
     y = []
     y_encoded = []  # we want to have the y measurement in the latent space domain as well here
     for i in range(sample_batch_size):
-        y.append(radon(true_images[i], angles, circle=False))  # im from dataset that makes it conditional
-        image = true_images[i][None, None, :, :]
+        y.append(radon(true_images[i][:, :, 0], angles, circle=False))  # im from dataset that makes it conditional
+        image = true_images[i][:, :, 0][None, None, :, :]
         image = torch.from_numpy(image).repeat(1, 3, 1, 1).to(device)
         encoded = autoencoder_model.encode_to_prequant(image)
         # you can get 23 by looking at the shape after radon
@@ -296,24 +305,22 @@ def generate_samples(marginal_prob_std_fn, score_model, diffusion_coeff_fn, im_d
     encoded_samples_clean = []
     for i in range(n_posterior_samples):
         posterior_samples_clean = euler_maruyama_sampler(score_model,
-                                                         y_encoded,
+                                                         y,
                                                          marginal_prob_std_fn,
                                                          diffusion_coeff_fn,
                                                          batch_size=sample_batch_size,
                                                          autoencoder_model=autoencoder_model,
                                                          device=device,
                                                          z=z_init[i], tau=global_tau)
-        # posterior_samples_clean = posterior_samples_clean.clamp(0.0, 1.0)
         encoded_samples_clean.append(posterior_samples_clean)
 
-    samples_clean = torch.zeros(n_posterior_samples, sample_batch_size, image_channels, image_size, image_size)
+    samples_clean = torch.zeros(n_posterior_samples, sample_batch_size, 3, image_size, image_size)
     for i in range(n_posterior_samples):
         for j in range(sample_batch_size):
             samples_clean[i, j:j+1] = autoencoder_model.decode(encoded_samples_clean[i][j:j+1])
 
     # Get STD of samples ===============================================================================================
     # samples tensor has dimensions n_posterior_samples x sample_batch_size x n_channels x im_size x im_size
-    print(samples_clean.shape)
     samples_clean_std = torch.std(samples_clean, dim=0, keepdim=True)
     samples_clean_std = samples_clean_std.cpu().detach().numpy()
     rescaled_samples_clean_std = (samples_clean_std - np.min(samples_clean_std)) / \
@@ -324,6 +331,8 @@ def generate_samples(marginal_prob_std_fn, score_model, diffusion_coeff_fn, im_d
 
     column_visualization(true_images, samples_fbp_clean, samples_clean, rescaled_samples_clean_std, samples_clean_mean,
                          "FBP, y", "Samples", "column_visualization")
+
+
 
 
 def main():

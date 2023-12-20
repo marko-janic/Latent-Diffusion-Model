@@ -1,0 +1,5 @@
+# Full view sampling
+python3 main.py conditional sample exdir:experiment6 sampledir:sampling1
+
+# Limited view sampling
+python3 main.py conditional sample exdir:experiment7 sampledir:sampling1

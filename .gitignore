@@ -4,7 +4,7 @@ archive
 models/vq-f4
 venv
 /taming/
-__pycache__
+ldm/modules/__pycache__
 
 # Files
 main_old.py
