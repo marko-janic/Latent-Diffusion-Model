@@ -28,10 +28,10 @@ from functions import compute_snr
 
 
 # Datasets
-limited_CT_dataset_path = ("/mnt/c/Users/marko/Desktop/Bachelors Thesis/datasets/limited_CT/"
-                           "limited-CT_64/limited-CT/horizontal_snr25.0.npz")  # local machine wsl
-#limited_CT_dataset_path = os.path.join("..", "bachelors_thesis", "datasets", "limited-CT_64",
-#                                       "limited-CT", "horizontal_snr25.0.npz")  # on sciCORE
+#limited_CT_dataset_path = ("/mnt/c/Users/marko/Desktop/Bachelors Thesis/datasets/limited_CT/"
+#                           "limited-CT_64/limited-CT/horizontal_snr25.0.npz")  # local machine wsl
+limited_CT_dataset_path = os.path.join("..", "bachelors_thesis", "datasets", "limited-CT_64",
+                                       "limited-CT", "horizontal_snr25.0.npz")  # on sciCORE
 image_size = 64
 
 # Autoencoder Model
@@ -57,14 +57,14 @@ experiment_dir = "experiments/experiment6/"  # Directory where checkpoint is
 
 # Sampling
 num_steps = 100  # Number of sampling steps
-sample_batch_size = 5
+sample_batch_size = 20
 n_angles = 90
 theta_low = 0  # lower value for angles
 theta_max = 180  # higher value for angles
 angles = np.linspace(theta_low, theta_max, n_angles)
-n_posterior_samples = 4
+n_posterior_samples = 10
 global_tau = 0.5
-sampling_dir = "sampling1/"  # Directory for current sampling instance
+sampling_dir = "sampling_final/"  # Directory for current sampling instance
 n_column_samples = 5
 n_columns = 7
 visualisation_cmap = "gray"
@@ -75,7 +75,7 @@ include_gradient_descent = False
 skip_training = True
 additional_comments_training = ""
 additional_comments_sampling = ""
-limited_view = True
+limited_view = False
 
 # Checkers
 if n_posterior_samples < 3:
