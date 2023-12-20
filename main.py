@@ -314,7 +314,7 @@ def generate_samples(marginal_prob_std_fn, score_model, diffusion_coeff_fn, im_d
                                                          autoencoder_model=autoencoder_model,
                                                          device=device,
                                                          z=z_init[i], tau=global_tau)
-        encoded_samples_clean.append(posterior_samples_clean)
+        encoded_samples_clean.append(posterior_samples_clean.detach())
 
     samples_clean = torch.zeros(n_posterior_samples, sample_batch_size, 3, image_size, image_size)
     for i in range(n_posterior_samples):
