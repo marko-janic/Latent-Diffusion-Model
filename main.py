@@ -16,6 +16,7 @@ from torch.optim import Adam
 from ema import ExponentialMovingAverage
 from tqdm import tqdm
 from datetime import datetime
+from skimage.metrics import peak_signal_noise_ratio
 
 # Local file imports
 from ldm.util import instantiate_from_config
@@ -23,6 +24,7 @@ from ldm.models.diffusion.psld import DDIMSampler
 from functions import marginal_prob_std
 from functions import diffusion_coeff
 from models.models import ScoreNet
+from functions import compute_snr
 
 
 # Datasets
@@ -51,16 +53,16 @@ learning_rate = 1e-3
 losses = []
 n_skip_epochs = 4  # Number of epochs to skip for plotting the training
 image_channels = 6
-experiment_dir = "experiments/experiment7/"  # Directory where checkpoint is
+experiment_dir = "experiments/experiment6/"  # Directory where checkpoint is
 
 # Sampling
 num_steps = 100  # Number of sampling steps
 sample_batch_size = 5
 n_angles = 90
 theta_low = 0  # lower value for angles
-theta_max = 90  # higher value for angles
+theta_max = 180  # higher value for angles
 angles = np.linspace(theta_low, theta_max, n_angles)
-n_posterior_samples = 10
+n_posterior_samples = 4
 global_tau = 0.5
 sampling_dir = "sampling1/"  # Directory for current sampling instance
 n_column_samples = 5
@@ -318,6 +320,7 @@ def generate_samples(marginal_prob_std_fn, score_model, diffusion_coeff_fn, im_d
     for i in range(n_posterior_samples):
         for j in range(sample_batch_size):
             samples_clean[i, j:j+1] = autoencoder_model.decode(encoded_samples_clean[i][j:j+1])
+    samples_clean = torch.clamp(samples_clean, min=0, max=1)
 
     # Get STD of samples ===============================================================================================
     # samples tensor has dimensions n_posterior_samples x sample_batch_size x n_channels x im_size x im_size
@@ -332,7 +335,21 @@ def generate_samples(marginal_prob_std_fn, score_model, diffusion_coeff_fn, im_d
     column_visualization(true_images, samples_fbp_clean, samples_clean, rescaled_samples_clean_std, samples_clean_mean,
                          "FBP, y", "Samples", "column_visualization")
 
+    # Compute average SNR and PSNR for samples =========================================================================
+    samples_average_snr = 0
+    samples_average_psnr = 0
+    for i in range(sample_batch_size):
+        samples_average_snr += compute_snr(torch.from_numpy(true_images[i]).permute(2, 0, 1).detach().cpu().numpy(),
+                                           samples_clean_mean[0, i])
+        samples_average_psnr += peak_signal_noise_ratio(
+            torch.from_numpy(true_images[i]).permute(2, 0, 1).detach().cpu().numpy(),
+            samples_clean_mean[0, i])
+    samples_average_psnr = samples_average_psnr / sample_batch_size
+    samples_average_snr = samples_average_snr / sample_batch_size
 
+    print("Sampling Results: " + "\n"
+          "Average PSNR for batch: " + str(samples_average_psnr) + "\n" +
+          "Average SNR for batch: " + str(samples_average_snr) + "\n")
 
 
 def main():
@@ -469,6 +486,6 @@ if __name__ == "__main__":
           "theta_max (Limited view sinograms): " + str(theta_max) + "\n" +
           "experiment_dir: " + str(experiment_dir) + "\n" +
           "sampling_dir: " + str(sampling_dir) + "\n" +
-          "visualisation_cmap: " + str(visualisation_cmap))
+          "visualisation_cmap: " + str(visualisation_cmap) + "\n")
 
     main()
